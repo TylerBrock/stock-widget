@@ -1,0 +1,316 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+:root {
+  --bg: rgba(26, 26, 28, 0.88);
+  --surface: rgba(58, 58, 60, 0.7);
+  --border: rgba(255, 255, 255, 0.09);
+  --text: #f2f2f7;
+  --muted: rgba(242, 242, 247, 0.45);
+  --green: #6ee7b7;
+  --green-bg: rgba(110, 231, 183, 0.07);
+  --red: #fda4af;
+  --red-bg: rgba(253, 164, 175, 0.07);
+  --accent: #0a84ff;
+  --radius: 14px;
+}
+
+html, body {
+  background: transparent;
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  font-size: 14px;
+  line-height: 1;
+  user-select: none;
+  -webkit-app-region: no-drag;
+}
+
+/* ── App shell ── */
+.app {
+  width: 280px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.3);
+}
+
+/* ── Header ── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 14px 11px;
+  border-bottom: 1px solid var(--border);
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -.3px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.updated {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+  transition: color .15s, background .15s;
+}
+
+.icon-btn:hover {
+  color: var(--text);
+  background: rgba(255,255,255,.08);
+}
+
+.tray-mode-btn {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 2px 6px;
+}
+
+.tray-mode-btn.active {
+  color: var(--accent);
+  background: rgba(10, 132, 255, 0.15);
+}
+
+/* ── Stock list ── */
+.stock-list {
+  max-height: 340px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.stock-list::-webkit-scrollbar { display: none; }
+
+.state-msg {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ── Stock item ── */
+.stock-item {
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .12s;
+}
+
+.stock-item:last-child { border-bottom: none; }
+
+.stock-item.up  { background: var(--green-bg); }
+.stock-item.down { background: var(--red-bg); }
+
+.stock-item.up:hover  { background: rgba(110, 231, 183, 0.12); }
+.stock-item.down:hover { background: rgba(253, 164, 175, 0.12); }
+
+.stock-main {
+  display: flex;
+  align-items: center;
+  padding: 10px 8px 10px 10px;
+  gap: 8px;
+}
+
+.active-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(242, 242, 247, 0.25);
+  flex-shrink: 0;
+  transition: background .15s, border-color .15s;
+}
+
+.stock-item.active .active-indicator {
+  background: #f2f2f7;
+  border-color: #f2f2f7;
+}
+
+/* Left: symbol stacked over price */
+.stock-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.symbol-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.symbol {
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -.3px;
+}
+
+.badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255,255,255,.10);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+
+.price {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -.2px;
+}
+
+.stock-item.up   .price { color: var(--green); }
+.stock-item.down .price { color: var(--red); }
+
+.error-label { color: var(--red); font-size: 12px; }
+
+/* Right: % change stacked over $ change */
+.stock-perf {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.pct {
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -.2px;
+}
+
+.chg {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.stock-item.up   .pct { color: var(--green); }
+.stock-item.down .pct { color: var(--red); }
+
+/* Remove button — shown on hover */
+.remove-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity .15s, background .15s, color .15s;
+  flex-shrink: 0;
+}
+
+.remove-btn.visible { opacity: 1; }
+.stock-item:hover .remove-btn { opacity: 1; }
+.remove-btn:hover { color: var(--text); background: rgba(255,255,255,.12); }
+
+/* ── Expanded detail ── */
+.stock-detail {
+  padding: 6px 14px 10px 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 0;
+  border-top: 1px solid var(--border);
+  margin: 0 8px;
+}
+
+.detail-row {
+  display: contents;
+}
+
+.detail-row span:first-child {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 2px 0;
+}
+
+.detail-row span:last-child {
+  font-size: 11px;
+  font-weight: 500;
+  text-align: right;
+  padding: 2px 0;
+}
+
+.stock-item.up   .stock-detail { border-top-color: rgba(110, 231, 183, 0.15); }
+.stock-item.down .stock-detail { border-top-color: rgba(253, 164, 175, 0.15); }
+
+/* ── Add stock ── */
+.add-stock-wrap {
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 10px 12px;
+}
+
+.add-stock {
+  display: flex;
+  gap: 7px;
+}
+
+.add-stock input {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  transition: border-color .15s;
+}
+
+.add-stock input::placeholder { color: rgba(242, 242, 247, 0.6); }
+
+.add-stock input:focus { border-color: var(--accent); }
+
+.add-stock button {
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: opacity .15s;
+}
+
+.add-stock button:disabled { opacity: .55; cursor: default; }
+
+.add-error {
+  display: block;
+  font-size: 11px;
+  color: var(--red);
+  margin-top: 5px;
+  padding-left: 2px;
+}
