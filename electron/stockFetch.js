@@ -9,18 +9,20 @@ const HEADERS = {
 }
 
 async function fetchSingleQuote(symbol) {
-  const url = `${CHART_BASE}/${encodeURIComponent(symbol)}?interval=1d&range=1d&includePrePost=false`
+  const url = `${CHART_BASE}/${encodeURIComponent(symbol)}?interval=5m&range=1d&includePrePost=false`
   const res = await fetch(url, { headers: HEADERS })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
   const data = await res.json()
-  const meta = data?.chart?.result?.[0]?.meta
+  const result = data?.chart?.result?.[0]
+  const meta = result?.meta
   if (!meta?.regularMarketPrice) throw new Error('No data')
 
   const price = meta.regularMarketPrice
   const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? price
   const change = price - prevClose
   const changePercent = prevClose !== 0 ? (change / prevClose) * 100 : 0
+  const closes = result?.indicators?.quote?.[0]?.close ?? []
 
   return {
     symbol: meta.symbol || symbol,
@@ -32,6 +34,8 @@ async function fetchSingleQuote(symbol) {
     low: meta.regularMarketDayLow,
     volume: meta.regularMarketVolume,
     marketState: meta.marketState,
+    closes,
+    prevClose,
   }
 }
 

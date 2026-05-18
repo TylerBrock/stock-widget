@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, nativeImage, ipcMain, screen } = require('electron')
+const { app, BrowserWindow, Tray, nativeImage, ipcMain, screen, Menu } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { fetchQuotes } = require('./stockFetch')
@@ -25,7 +25,7 @@ function loadWatchlist() {
   try {
     return JSON.parse(fs.readFileSync(watchlistPath(), 'utf8'))
   } catch {
-    return ['MDB', 'AAPL', 'GOOGL', 'MSFT', 'TSLA', 'SPY']
+    return ['MDB', 'AAPL', 'GOOG', 'VTI', 'TSLA', 'SPY']
   }
 }
 
@@ -181,6 +181,12 @@ app.whenReady().then(async () => {
     }
   })
 
+  const trayMenu = Menu.buildFromTemplate([
+    { label: 'Quit', click: () => app.exit(0) },
+  ])
+
+  tray.on('right-click', () => tray.popUpContextMenu(trayMenu))
+
   tray.on('click', () => {
     if (win.isVisible()) {
       win.hide()
@@ -255,6 +261,7 @@ app.whenReady().then(async () => {
     await updateTray(quotes)
     return quotes
   })
+
 
   // Initial fetch
   try {

@@ -13,6 +13,44 @@ function fmtVolume(v) {
   return String(v)
 }
 
+function MiniSparkline({ closes, prevClose, up }) {
+  const valid = closes?.filter((c) => c != null) ?? []
+  if (valid.length < 2) return <div className="mini-spark" />
+
+  const W = 68
+  const H = 30
+  const pad = 2
+
+  const allVals = [...valid, prevClose]
+  const min = Math.min(...allVals)
+  const max = Math.max(...allVals)
+  const range = max - min || 1
+
+  const toX = (i) => (pad + (i / (valid.length - 1)) * (W - pad * 2)).toFixed(1)
+  const toY = (v) => (pad + (1 - (v - min) / range) * (H - pad * 2)).toFixed(1)
+
+  const pts = valid.map((c, i) => `${toX(i)},${toY(c)}`).join(' ')
+  const color = up ? 'var(--green)' : 'var(--red)'
+  const fillColor = up ? 'rgba(110,231,183,0.15)' : 'rgba(253,164,175,0.15)'
+  const botY = (H - pad).toFixed(1)
+  const firstX = toX(0)
+  const lastX = toX(valid.length - 1)
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="mini-spark">
+      <polygon points={`${firstX},${botY} ${pts} ${lastX},${botY}`} fill={fillColor} />
+      <polyline
+        points={pts}
+        fill="none"
+        stroke={color}
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
 export default function StockItem({ quote, isActive, onSetActive, onRemove, onDragStart, onDragOver, onDragEnd }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -59,6 +97,8 @@ export default function StockItem({ quote, isActive, onSetActive, onRemove, onDr
           </div>
           <span className="price">${fmt(quote.price)}</span>
         </div>
+
+        <MiniSparkline closes={quote.closes} prevClose={quote.prevClose} up={up} />
 
         <div className="stock-perf">
           <span className="pct">{sign}{fmt(quote.changePercent)}%</span>

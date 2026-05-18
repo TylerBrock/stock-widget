@@ -261,6 +261,11 @@ html, body {
 .stock-item.up   .stock-detail { border-top-color: rgba(110, 231, 183, 0.15); }
 .stock-item.down .stock-detail { border-top-color: rgba(253, 164, 175, 0.15); }
 
+.mini-spark {
+  flex-shrink: 0;
+  display: block;
+}
+
 /* ── Add stock ── */
 .add-stock-wrap {
   border-top: 1px solid rgba(255, 255, 255, 0.14);
