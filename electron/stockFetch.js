@@ -49,9 +49,13 @@ async function fetchSingleQuote(symbol) {
 
   const prePrice = pre ? lastCloseIn(pre.start, pre.end) : null
   const postPrice = post ? lastCloseIn(post.start, post.end) : null
-  const preChange = prePrice != null ? prePrice - prevClose : null
-  const preChangePercent = prePrice != null && prevClose !== 0
-    ? ((prePrice - prevClose) / prevClose) * 100
+  // Extended-hours change is measured against the most recent regular close
+  // (regularMarketPrice), not chartPreviousClose — when range=1d is requested
+  // before the regular session opens, chartPreviousClose points at the session
+  // *before* the most recent close.
+  const preChange = prePrice != null ? prePrice - price : null
+  const preChangePercent = prePrice != null && price !== 0
+    ? ((prePrice - price) / price) * 100
     : null
   const postChange = postPrice != null ? postPrice - price : null
   const postChangePercent = postPrice != null && price !== 0
