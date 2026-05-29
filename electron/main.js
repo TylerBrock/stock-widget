@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, nativeImage, ipcMain, screen, Menu, nativeTheme } = require('electron')
+const { app, BrowserWindow, Tray, nativeImage, ipcMain, screen, Menu } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { fetchQuotes } = require('./stockFetch')
@@ -48,17 +48,15 @@ function saveSettings(settings) {
 
 // --- Tray icon rendering ---
 
-async function makeTrayIcon(symbol, valueStr, tickerColor, valueColor, shadowColor) {
+async function makeTrayIcon(symbol, valueStr, tickerColor, valueColor) {
   if (!winReady || !win || win.isDestroyed()) return null
 
   const H = 44
-  const PAD = 12
 
   try {
     const dataURL = await win.webContents.executeJavaScript(`
       (() => {
         const H = ${H}
-        const PAD = ${PAD}
         const mid = H / 2
 
         const measure = document.createElement('canvas').getContext('2d')
@@ -67,26 +65,24 @@ async function makeTrayIcon(symbol, valueStr, tickerColor, valueColor, shadowCol
         measure.font = 'bold 26px -apple-system, BlinkMacSystemFont'
         const valW = measure.measureText(${JSON.stringify(valueStr)}).width
         const gap = 10
-        const W = Math.ceil(tickerW + gap + valW) + PAD * 2
+        const W = Math.ceil(tickerW + gap + valW)
 
         const c = document.createElement('canvas')
         c.width = W
         c.height = H
         const ctx = c.getContext('2d')
         ctx.textBaseline = 'middle'
-        ctx.shadowColor = ${JSON.stringify(shadowColor)}
-        ctx.shadowBlur = 10
-        ctx.shadowOffsetX = 0
-        ctx.shadowOffsetY = 0
+        ctx.textRendering = 'geometricPrecision'
 
-        const draw = (text, x, font, fill) => {
-          ctx.font = font
-          ctx.fillStyle = fill
-          ctx.fillText(text, x, mid)
-        }
+        const valX = Math.round(tickerW + gap)
 
-        draw(${JSON.stringify(symbol)}, PAD, 'bold 28px -apple-system, BlinkMacSystemFont', ${JSON.stringify(tickerColor)})
-        draw(${JSON.stringify(valueStr)}, PAD + tickerW + gap, 'bold 26px -apple-system, BlinkMacSystemFont', ${JSON.stringify(valueColor)})
+        ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont'
+        ctx.fillStyle = ${JSON.stringify(tickerColor)}
+        ctx.fillText(${JSON.stringify(symbol)}, 0, mid)
+
+        ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont'
+        ctx.fillStyle = ${JSON.stringify(valueColor)}
+        ctx.fillText(${JSON.stringify(valueStr)}, valX, mid)
 
         return c.toDataURL()
       })()
@@ -125,18 +121,14 @@ async function updateTray(quotes) {
   const price = ext?.price ?? q.price
   const pct = ext?.pct ?? q.changePercent
   const isUp = pct >= 0
-  const isDark = nativeTheme.shouldUseDarkColors
-  const tickerColor = isDark ? '#f2f2f7' : '#1c1c1e'
-  const valueColor = isDark
-    ? (isUp ? '#6ee7b7' : '#fda4af')
-    : (isUp ? '#047857' : '#b91c1c')
-  const shadowColor = isDark ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.95)'
-  const prefix = ext ? '·' : ''
-  const valueStr = trayMode === 'pct'
-    ? `${prefix}${isUp ? '+' : ''}${pct.toFixed(2)}%`
-    : `${prefix}$${price.toFixed(2)}`
+  const tickerColor = '#000000'
+  const valueColor = isUp ? '#047857' : '#b91c1c'
+  const suffix = ext ? '  ☾' : ''
+  const valueStr = (trayMode === 'pct'
+    ? `${isUp ? '+' : ''}${pct.toFixed(2)}%`
+    : `$${price.toFixed(2)}`) + suffix
 
-  const icon = await makeTrayIcon(q.symbol, valueStr, tickerColor, valueColor, shadowColor)
+  const icon = await makeTrayIcon(q.symbol, valueStr, tickerColor, valueColor)
   if (icon) {
     tray.setImage(icon)
     tray.setTitle('')
@@ -314,15 +306,6 @@ app.whenReady().then(async () => {
   } catch (err) {
     console.error('Initial fetch error:', err.message)
   }
-
-  nativeTheme.on('updated', async () => {
-    try {
-      const quotes = await fetchQuotes(loadWatchlist())
-      await updateTray(quotes)
-    } catch (err) {
-      console.error('Theme update fetch error:', err.message)
-    }
-  })
 
   setInterval(async () => {
     try {
