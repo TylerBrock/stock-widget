@@ -48,7 +48,7 @@ function saveSettings(settings) {
 
 // --- Tray icon rendering ---
 
-async function makeTrayIcon(symbol, valueStr, tickerColor, valueColor) {
+async function makeTrayIcon(symbol, valueStr) {
   if (!winReady || !win || win.isDestroyed()) return null
 
   const H = 44
@@ -73,22 +73,25 @@ async function makeTrayIcon(symbol, valueStr, tickerColor, valueColor) {
         const ctx = c.getContext('2d')
         ctx.textBaseline = 'middle'
         ctx.textRendering = 'geometricPrecision'
+        // Solid black + full alpha — macOS uses the alpha channel as a mask
+        // when the image is flagged as a template, inverting on dark menubars.
+        ctx.fillStyle = '#000000'
 
         const valX = Math.round(tickerW + gap)
 
         ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont'
-        ctx.fillStyle = ${JSON.stringify(tickerColor)}
         ctx.fillText(${JSON.stringify(symbol)}, 0, mid)
 
         ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont'
-        ctx.fillStyle = ${JSON.stringify(valueColor)}
         ctx.fillText(${JSON.stringify(valueStr)}, valX, mid)
 
         return c.toDataURL()
       })()
     `)
     const buf = Buffer.from(dataURL.split(',')[1], 'base64')
-    return nativeImage.createFromBuffer(buf, { scaleFactor: 2.0 })
+    const img = nativeImage.createFromBuffer(buf, { scaleFactor: 2.0 })
+    img.setTemplateImage(true)
+    return img
   } catch (err) {
     console.error('makeTrayIcon failed:', err.message)
     return null
@@ -121,14 +124,12 @@ async function updateTray(quotes) {
   const price = ext?.price ?? q.price
   const pct = ext?.pct ?? q.changePercent
   const isUp = pct >= 0
-  const tickerColor = '#000000'
-  const valueColor = isUp ? '#047857' : '#b91c1c'
-  const suffix = ext ? '  ☾' : ''
+  const suffix = ext ? ' *' : ''
   const valueStr = (trayMode === 'pct'
     ? `${isUp ? '+' : ''}${pct.toFixed(2)}%`
     : `$${price.toFixed(2)}`) + suffix
 
-  const icon = await makeTrayIcon(q.symbol, valueStr, tickerColor, valueColor)
+  const icon = await makeTrayIcon(q.symbol, valueStr)
   if (icon) {
     tray.setImage(icon)
     tray.setTitle('')
