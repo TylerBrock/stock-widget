@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import StockItem from './components/StockItem'
 import AddStock from './components/AddStock'
 
+const MARKET_BADGE = { PRE: 'Pre', POST: 'After', CLOSED: 'Closed' }
+
 export default function App() {
   const [quotes, setQuotes] = useState([])
   const [watchlist, setWatchlist] = useState([])
@@ -9,6 +11,7 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState(null)
   const [trayMode, setTrayMode] = useState('price')
+  const [afterHours, setAfterHours] = useState(false)
   const dragSrc = useRef(null)
 
   const refresh = useCallback(async (symbols) => {
@@ -20,12 +23,14 @@ export default function App() {
 
   useEffect(() => {
     ;(async () => {
-      const [symbols, active, mode] = await Promise.all([
+      const [symbols, active, mode, ah] = await Promise.all([
         window.stockAPI.getWatchlist(),
         window.stockAPI.getActiveSymbol(),
         window.stockAPI.getTrayMode(),
+        window.stockAPI.getAfterHours(),
       ])
       setTrayMode(mode || 'price')
+      setAfterHours(!!ah)
       setWatchlist(symbols)
       setActiveSymbol(active || symbols[0])
       await refresh(symbols)
@@ -66,6 +71,12 @@ export default function App() {
     const next = trayMode === 'price' ? 'pct' : 'price'
     setTrayMode(next)
     await window.stockAPI.setTrayMode(next)
+  }
+
+  const toggleAfterHours = async () => {
+    const next = !afterHours
+    setAfterHours(next)
+    await window.stockAPI.setAfterHours(next)
   }
 
   const handleDragStart = (symbol) => {
@@ -117,14 +128,29 @@ export default function App() {
   const formatTime = (d) =>
     d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
+  const activeQuote = quotes.find((q) => q.symbol === activeSymbol && !q.error)
+  const marketBadge = activeQuote && MARKET_BADGE[activeQuote.marketState]
+
   return (
     <div className="app">
       <div className="header">
-        <span className="title">Markets</span>
+        <div className="header-left">
+          <span className="title">Markets</span>
+          {marketBadge && <span className="badge header-badge">{marketBadge}</span>}
+        </div>
         <div className="header-right">
           {lastUpdated && (
             <span className="updated">{formatTime(lastUpdated)}</span>
           )}
+          <button
+            className={`icon-btn moon-btn ${afterHours ? 'active' : ''}`}
+            onClick={toggleAfterHours}
+            title="Show after-hours price"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+            </svg>
+          </button>
           <button
             className={`icon-btn tray-mode-btn ${trayMode === 'pct' ? 'active' : ''}`}
             onClick={toggleTrayMode}

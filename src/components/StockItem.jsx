@@ -1,7 +1,5 @@
 import React, { useState } from 'react'
 
-const MARKET_BADGE = { PRE: 'Pre', POST: 'After', CLOSED: 'Closed' }
-
 function fmt(n, d = 2) {
   return n != null ? n.toFixed(d) : '—'
 }
@@ -71,7 +69,6 @@ export default function StockItem({ quote, isActive, onSetActive, onRemove, onDr
 
   const up = quote.changePercent >= 0
   const sign = up ? '+' : ''
-  const badge = MARKET_BADGE[quote.marketState]
 
   const handleClick = () => {
     onSetActive()
@@ -91,10 +88,7 @@ export default function StockItem({ quote, isActive, onSetActive, onRemove, onDr
         <div className="active-indicator" />
 
         <div className="stock-info">
-          <div className="symbol-row">
-            <span className="symbol">{quote.symbol}</span>
-            {badge && <span className="badge">{badge}</span>}
-          </div>
+          <span className="symbol">{quote.symbol}</span>
           <span className="price">${fmt(quote.price)}</span>
         </div>
 

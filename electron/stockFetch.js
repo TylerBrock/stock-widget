@@ -9,7 +9,7 @@ const HEADERS = {
 }
 
 async function fetchSingleQuote(symbol) {
-  const url = `${CHART_BASE}/${encodeURIComponent(symbol)}?interval=5m&range=1d&includePrePost=false`
+  const url = `${CHART_BASE}/${encodeURIComponent(symbol)}?interval=5m&range=1d&includePrePost=true`
   const res = await fetch(url, { headers: HEADERS })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
@@ -22,7 +22,48 @@ async function fetchSingleQuote(symbol) {
   const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? price
   const change = price - prevClose
   const changePercent = prevClose !== 0 ? (change / prevClose) * 100 : 0
-  const closes = result?.indicators?.quote?.[0]?.close ?? []
+
+  const timestamps = result?.timestamp ?? []
+  const allCloses = result?.indicators?.quote?.[0]?.close ?? []
+  const reg = meta?.tradingPeriods?.regular?.[0]?.[0]
+  const pre = meta?.tradingPeriods?.pre?.[0]?.[0]
+  const post = meta?.tradingPeriods?.post?.[0]?.[0]
+
+  const lastCloseIn = (start, end) => {
+    if (start == null || end == null) return null
+    let last = null
+    for (let i = 0; i < timestamps.length; i++) {
+      const t = timestamps[i]
+      if (t >= start && t < end && allCloses[i] != null) last = allCloses[i]
+    }
+    return last
+  }
+
+  // Sparkline uses regular-session bars only — pre/post bars would stretch
+  // the chart across hours of mostly-flat trading.
+  const closes = reg
+    ? timestamps
+        .map((t, i) => (t >= reg.start && t < reg.end ? allCloses[i] : null))
+        .filter((c) => c != null)
+    : allCloses.filter((c) => c != null)
+
+  const prePrice = pre ? lastCloseIn(pre.start, pre.end) : null
+  const postPrice = post ? lastCloseIn(post.start, post.end) : null
+  const preChange = prePrice != null ? prePrice - prevClose : null
+  const preChangePercent = prePrice != null && prevClose !== 0
+    ? ((prePrice - prevClose) / prevClose) * 100
+    : null
+  const postChange = postPrice != null ? postPrice - price : null
+  const postChangePercent = postPrice != null && price !== 0
+    ? ((postPrice - price) / price) * 100
+    : null
+
+  // Yahoo's chart endpoint omits marketState; derive it from the period windows.
+  const now = Math.floor(Date.now() / 1000)
+  let marketState = 'CLOSED'
+  if (reg && now >= reg.start && now < reg.end) marketState = 'REGULAR'
+  else if (post && now >= post.start && now < post.end) marketState = 'POST'
+  else if (pre && now >= pre.start && now < pre.end) marketState = 'PRE'
 
   return {
     symbol: meta.symbol || symbol,
@@ -33,9 +74,15 @@ async function fetchSingleQuote(symbol) {
     high: meta.regularMarketDayHigh,
     low: meta.regularMarketDayLow,
     volume: meta.regularMarketVolume,
-    marketState: meta.marketState,
+    marketState,
     closes,
     prevClose,
+    prePrice,
+    preChange,
+    preChangePercent,
+    postPrice,
+    postChange,
+    postChangePercent,
   }
 }
 

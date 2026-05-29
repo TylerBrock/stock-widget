@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, nativeImage, ipcMain, screen, Menu } = require('electron')
+const { app, BrowserWindow, Tray, nativeImage, ipcMain, screen, Menu, nativeTheme } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { fetchQuotes } = require('./stockFetch')
@@ -10,6 +10,7 @@ let win = null
 let winReady = false
 let activeSymbol = null
 let trayMode = 'price'
+let afterHours = false
 
 // --- Persistence ---
 
@@ -47,38 +48,45 @@ function saveSettings(settings) {
 
 // --- Tray icon rendering ---
 
-async function makeTrayIcon(symbol, valueStr, valueColor) {
+async function makeTrayIcon(symbol, valueStr, tickerColor, valueColor, shadowColor) {
   if (!winReady || !win || win.isDestroyed()) return null
 
   const H = 44
+  const PAD = 12
 
   try {
     const dataURL = await win.webContents.executeJavaScript(`
       (() => {
         const H = ${H}
+        const PAD = ${PAD}
         const mid = H / 2
 
         const measure = document.createElement('canvas').getContext('2d')
         measure.font = 'bold 28px -apple-system, BlinkMacSystemFont'
         const tickerW = measure.measureText(${JSON.stringify(symbol)}).width
-        measure.font = '26px -apple-system, BlinkMacSystemFont'
+        measure.font = 'bold 26px -apple-system, BlinkMacSystemFont'
         const valW = measure.measureText(${JSON.stringify(valueStr)}).width
         const gap = 10
-        const W = Math.ceil(tickerW + gap + valW)
+        const W = Math.ceil(tickerW + gap + valW) + PAD * 2
 
         const c = document.createElement('canvas')
         c.width = W
         c.height = H
         const ctx = c.getContext('2d')
         ctx.textBaseline = 'middle'
+        ctx.shadowColor = ${JSON.stringify(shadowColor)}
+        ctx.shadowBlur = 10
+        ctx.shadowOffsetX = 0
+        ctx.shadowOffsetY = 0
 
-        ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont'
-        ctx.fillStyle = '#f2f2f7'
-        ctx.fillText(${JSON.stringify(symbol)}, 0, mid)
+        const draw = (text, x, font, fill) => {
+          ctx.font = font
+          ctx.fillStyle = fill
+          ctx.fillText(text, x, mid)
+        }
 
-        ctx.font = '26px -apple-system, BlinkMacSystemFont'
-        ctx.fillStyle = ${JSON.stringify(valueColor)}
-        ctx.fillText(${JSON.stringify(valueStr)}, tickerW + gap, mid)
+        draw(${JSON.stringify(symbol)}, PAD, 'bold 28px -apple-system, BlinkMacSystemFont', ${JSON.stringify(tickerColor)})
+        draw(${JSON.stringify(valueStr)}, PAD + tickerW + gap, 'bold 26px -apple-system, BlinkMacSystemFont', ${JSON.stringify(valueColor)})
 
         return c.toDataURL()
       })()
@@ -101,13 +109,34 @@ async function updateTray(quotes) {
   }
 
   const q = valid.find((x) => x.symbol === activeSymbol) || valid[0]
-  const isUp = q.changePercent >= 0
-  const valueColor = isUp ? '#6ee7b7' : '#fda4af'
-  const valueStr = trayMode === 'pct'
-    ? `${isUp ? '+' : ''}${q.changePercent.toFixed(2)}%`
-    : `$${q.price.toFixed(2)}`
 
-  const icon = await makeTrayIcon(q.symbol, valueStr, valueColor)
+  // Pick extended-hours quote when the toggle is on and data is available.
+  // PRE wins only during the pre-market window; otherwise prefer post (which
+  // Yahoo keeps populated through the next regular session, so the toggle
+  // still flips to the prior evening's after-hours close during the day).
+  const ext = afterHours
+    ? (q.marketState === 'PRE' && q.prePrice != null
+        ? { price: q.prePrice, pct: q.preChangePercent }
+        : q.postPrice != null
+          ? { price: q.postPrice, pct: q.postChangePercent }
+          : null)
+    : null
+
+  const price = ext?.price ?? q.price
+  const pct = ext?.pct ?? q.changePercent
+  const isUp = pct >= 0
+  const isDark = nativeTheme.shouldUseDarkColors
+  const tickerColor = isDark ? '#f2f2f7' : '#1c1c1e'
+  const valueColor = isDark
+    ? (isUp ? '#6ee7b7' : '#fda4af')
+    : (isUp ? '#047857' : '#b91c1c')
+  const shadowColor = isDark ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.95)'
+  const prefix = ext ? '·' : ''
+  const valueStr = trayMode === 'pct'
+    ? `${prefix}${isUp ? '+' : ''}${pct.toFixed(2)}%`
+    : `${prefix}$${price.toFixed(2)}`
+
+  const icon = await makeTrayIcon(q.symbol, valueStr, tickerColor, valueColor, shadowColor)
   if (icon) {
     tray.setImage(icon)
     tray.setTitle('')
@@ -141,6 +170,7 @@ app.whenReady().then(async () => {
   const watchlist = loadWatchlist()
   activeSymbol = settings.activeSymbol || watchlist[0] || null
   trayMode = settings.trayMode || 'price'
+  afterHours = !!settings.afterHours
 
   tray = new Tray(nativeImage.createEmpty())
   tray.setToolTip('Stock Ticker')
@@ -252,6 +282,20 @@ app.whenReady().then(async () => {
     return mode
   })
 
+  ipcMain.handle('get-after-hours', () => afterHours)
+
+  ipcMain.handle('set-after-hours', async (_, enabled) => {
+    afterHours = !!enabled
+    saveSettings({ ...loadSettings(), afterHours })
+    try {
+      const quotes = await fetchQuotes(loadWatchlist())
+      await updateTray(quotes)
+    } catch (err) {
+      console.error('set-after-hours fetch error:', err.message)
+    }
+    return afterHours
+  })
+
   ipcMain.handle('resize-window', (_, height) => {
     if (win && !win.isDestroyed()) win.setSize(280, Math.max(100, height + 2))
   })
@@ -270,6 +314,15 @@ app.whenReady().then(async () => {
   } catch (err) {
     console.error('Initial fetch error:', err.message)
   }
+
+  nativeTheme.on('updated', async () => {
+    try {
+      const quotes = await fetchQuotes(loadWatchlist())
+      await updateTray(quotes)
+    } catch (err) {
+      console.error('Theme update fetch error:', err.message)
+    }
+  })
 
   setInterval(async () => {
     try {

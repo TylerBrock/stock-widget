@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('stockAPI', {
   resizeWindow: (height) => ipcRenderer.invoke('resize-window', height),
   getTrayMode: () => ipcRenderer.invoke('get-tray-mode'),
   setTrayMode: (mode) => ipcRenderer.invoke('set-tray-mode', mode),
+  getAfterHours: () => ipcRenderer.invoke('get-after-hours'),
+  setAfterHours: (enabled) => ipcRenderer.invoke('set-after-hours', enabled),
   onQuotesUpdated: (cb) => {
     const handler = (_, quotes) => cb(quotes)
     ipcRenderer.on('quotes-updated', handler)
